@@ -4,8 +4,8 @@ export type CorpusPage = {
   topicForSection: (section: string) => string
 }
 
-export const MAX_DOCUMENT_EMBEDDING_REQUESTS_PER_RUN = 100
-export const MAX_QUERY_EMBEDDING_REQUESTS_PER_TEST_RUN = 10
+export const MAX_DOCUMENT_EMBEDDING_REQUESTS_PER_RUN = 8
+export const MAX_QUERY_EMBEDDING_REQUESTS_PER_TEST_RUN = 3
 
 export const corpusPages: CorpusPage[] = [
   {

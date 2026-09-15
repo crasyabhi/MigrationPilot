@@ -1,10 +1,16 @@
 import { fetchCorpusChunks } from '../src/rag/fetch'
 import { MAX_DOCUMENT_EMBEDDING_REQUESTS_PER_RUN } from '../src/rag/corpus'
-import { pendingChunks } from '../src/rag/pending'
+import { databasePool, pendingChunks } from '../src/rag/pending'
 
 async function main(): Promise<void> {
   const chunks = await fetchCorpusChunks()
-  const pending = await pendingChunks(chunks)
+  const pool = databasePool()
+  let pending
+  try {
+    pending = await pendingChunks(chunks, pool)
+  } finally {
+    await pool.end()
+  }
   if (pending.length > MAX_DOCUMENT_EMBEDDING_REQUESTS_PER_RUN) {
     throw new Error(`Found ${pending.length} new chunks, above the ${MAX_DOCUMENT_EMBEDDING_REQUESTS_PER_RUN}-call development limit.`)
   }
