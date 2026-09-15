@@ -33,6 +33,18 @@ Follow `BUILD_PLAN.md`. When asked for a day/milestone, complete only that miles
 - Preserve exact file/line/snippet evidence.
 - Keep changes scoped to one concern.
 
+## AWS Cost Safety
+Do not create, provision, deploy, or invoke any AWS resource or API that may incur charges without first telling the user:
+1. which AWS service will be used,
+2. why it is needed,
+3. whether the operation is billable,
+4. the approximate expected cost for this development action, and
+5. whether a free/local alternative exists.
+
+Do not create persistent paid resources such as RDS, Aurora, EC2, OpenSearch, provisioned Bedrock throughput, or AgentCore without explicit user approval.
+
+IAM/STS identity checks may be run without approval.
+
 ## Exactly four primary Strands tools
 1. `scan_dependencies`
 2. `find_usage_patterns`
