@@ -1,0 +1,5 @@
+{
+  "optionalDependencies": {
+    "aws-sdk": "~2.1000.0"
+  }
+}
