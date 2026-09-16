@@ -1,0 +1,5 @@
+const AWS = require('aws-sdk')
+const s3 = new AWS.S3()
+AWS.config.update({ region: 'us-east-1' })
+const url = s3.getSignedUrl('getObject', params)
+await s3.getObject({ Bucket, Key }).promise()
