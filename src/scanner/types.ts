@@ -38,3 +38,51 @@ export class DependencyScanError extends Error {
     this.name = 'DependencyScanError'
   }
 }
+
+export type UsageRuleId =
+  | 'DDB_DOCUMENT_CLIENT_V2'
+  | 'S3_CLIENT_V2'
+  | 'S3_GET_SIGNED_URL_V2'
+  | 'AWS_GLOBAL_CONFIG_V2'
+  | 'AWS_REQUEST_PROMISE_V2'
+  | 'DDB_UNDEFINED_MARSHALLING_REVIEW'
+
+export type UsageService = 'DynamoDB' | 'S3' | 'Core'
+export type FindingSeverity = 'high' | 'medium' | 'low'
+export type FindingConfidence = 'direct' | 'contextual' | 'heuristic'
+
+export interface UsageFinding {
+  ruleId: UsageRuleId
+  service: UsageService
+  filePath: string
+  line: number
+  column: number
+  snippet: string
+  migrationTopic: string
+  severity: FindingSeverity
+  confidence: FindingConfidence
+  manualReview: boolean
+  detectionReason: string
+}
+
+export interface UsageScanOptions {
+  maxFileSizeBytes?: number
+  maxFiles?: number
+}
+
+export type UsageScanErrorCode =
+  | 'REPOSITORY_READ_FAILED'
+  | 'SOURCE_FILE_READ_FAILED'
+  | 'SOURCE_FILE_LIMIT_EXCEEDED'
+
+export class UsageScanError extends Error {
+  constructor(
+    public readonly code: UsageScanErrorCode,
+    public readonly path: string,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options)
+    this.name = 'UsageScanError'
+  }
+}
