@@ -1,5 +1,6 @@
 import { Agent, BedrockModel } from '@strands-agents/sdk'
 import { resolve } from 'node:path'
+import { validateInvestigationNextSteps } from '../src/agent/investigation-output-policy'
 import { findUsagePatternsTool, type FindUsagePatternsToolOutput } from '../src/agent/tools/find-usage-patterns'
 import { getMigrationGuidance } from '../src/agent/tools/get-migration-guidance'
 import {
@@ -28,7 +29,10 @@ const systemPrompt = [
   'Describe only specific examples and behavior in the evidence. Avoid universal wording unless the evidence itself states it.',
   'Copy at least one returned sourceUrl verbatim, including its fragment, before giving migration advice.',
   'Frame manual-review findings as possible compatibility risks that require inspecting application intent, never as definite breakage.',
-  'Return a concise investigation summary of at most seven bullets and preferably under 350 words. Include the v2 dependency, file-and-line findings, investigated topics, official evidence, manual review, and what to inspect next. Do not produce a full migration report.',
+  'End with exactly one bullet labeled "What to inspect next:". Bound that bullet to file paths, locations, rule IDs, snippets, and identifiers returned by the scanner, plus APIs, configuration, and behavior literally present in retrieved migration evidence.',
+  'Do not suggest sibling operations, additional files, callers, wrappers, APIs, or possible code paths that were not surfaced by those tools, even when they seem plausible.',
+  'In the "What to inspect next" bullet, put every file path, rule ID, API, package, configuration property, method, and code identifier in backticks so its evidence can be checked locally.',
+  'Return a concise investigation summary of at most seven bullets and preferably under 350 words. Include the v2 dependency, file-and-line findings, investigated topics, official evidence, manual review, and the evidence-bounded next step. Do not produce a full migration report.',
 ].join(' ')
 
 function isDependencyOutput(value: unknown): value is ScanDependenciesToolOutput {
@@ -43,6 +47,7 @@ interface GuidanceEvidence {
   chunkId: string
   migrationTopic: string
   sourceUrl: string
+  content: string
 }
 
 function isGuidanceEvidence(value: unknown): value is GuidanceEvidence {
@@ -54,6 +59,8 @@ function isGuidanceEvidence(value: unknown): value is GuidanceEvidence {
     && typeof value.migrationTopic === 'string'
     && 'sourceUrl' in value
     && typeof value.sourceUrl === 'string'
+    && 'content' in value
+    && typeof value.content === 'string'
 }
 
 async function main(): Promise<void> {
@@ -102,6 +109,10 @@ async function main(): Promise<void> {
     : false
   const returnedEvidence = guidanceCalls.flatMap((call) => call.evidence).filter(isGuidanceEvidence)
   const exactSourceCited = returnedEvidence.some((evidence) => answer.includes(evidence.sourceUrl))
+  const discoveredFindings = isUsageOutput(discoverOutput) && discoverOutput.ok
+    ? discoverOutput.findings
+    : []
+  const nextStepPolicy = validateInvestigationNextSteps(answer, discoveredFindings, returnedEvidence)
   const successfulInvestigateStart = investigateStarts.find((event) => {
     const output = completionFor(event.callId)?.output
     return isUsageOutput(output) && output.ok
@@ -125,6 +136,7 @@ async function main(): Promise<void> {
   console.log(`Required source findings discovered: ${requiredFindings ? 'PASS' : 'FAIL'}`)
   console.log(`Guidance completion precedes successful investigate start: ${evidenceDrivenSecondHop ? 'PASS' : 'FAIL'}`)
   console.log(`Exact returned AWS source cited: ${exactSourceCited ? 'PASS' : 'FAIL'}`)
+  console.log(`Evidence-bounded next steps: ${nextStepPolicy.ok ? 'PASS' : `FAIL ${JSON.stringify(nextStepPolicy.issues)}`}`)
   console.log(`Titan query calls: ${embeddingCallCounts().queryCalls}`)
   const metrics = result.metrics?.latestAgentInvocation
   if (metrics) {
@@ -143,6 +155,7 @@ async function main(): Promise<void> {
     || !requiredFindings
     || !evidenceDrivenSecondHop
     || !exactSourceCited
+    || !nextStepPolicy.ok
   ) {
     process.exitCode = 1
   }
