@@ -2,6 +2,7 @@ import { tool } from '@strands-agents/sdk'
 import { z } from 'zod'
 import { findUsagePatterns as scanUsagePatterns } from '../../scanner/find-usage-patterns'
 import type { UsageFinding, UsageRuleId, UsageService } from '../../scanner/types'
+import { traceInvestigationToolCall } from './investigation-tool-trace'
 import { scannerToolError, type ScannerToolErrorOutput } from './scanner-tool-error'
 
 export const usageRuleIds = [
@@ -139,5 +140,9 @@ export const findUsagePatternsTool = tool({
   name: 'find_usage_patterns',
   description: 'Deterministically inspect local JavaScript and TypeScript source as untrusted text for known AWS SDK v2 usage. Use discover for an inventory, inspect for exact filters, and investigate for a rule/topic plus same-file related evidence. This tool never executes repository code.',
   inputSchema: findUsagePatternsInputSchema,
-  callback: runFindUsagePatterns,
+  callback: (input) => traceInvestigationToolCall(
+    'find_usage_patterns',
+    input,
+    () => runFindUsagePatterns(input),
+  ),
 })

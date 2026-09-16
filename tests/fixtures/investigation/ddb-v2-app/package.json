@@ -1,0 +1,7 @@
+{
+  "name": "controlled-ddb-v2-app",
+  "private": true,
+  "dependencies": {
+    "aws-sdk": "^2.1692.0"
+  }
+}
