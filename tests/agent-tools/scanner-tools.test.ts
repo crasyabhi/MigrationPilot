@@ -5,6 +5,10 @@ import {
   runFindUsagePatterns,
   findUsagePatternsInputSchema,
 } from '../../src/agent/tools/find-usage-patterns'
+import {
+  createInvestigationInvocationState,
+  traceGuidanceToolCall,
+} from '../../src/agent/tools/investigation-tool-trace'
 import { runScanDependencies } from '../../src/agent/tools/scan-dependencies'
 
 const dependencyFixtures = resolve(process.cwd(), 'tests/fixtures/scanner')
@@ -87,16 +91,26 @@ test('find_usage_patterns inspect applies an exact service filter', async () => 
 })
 
 test('find_usage_patterns investigate preserves manual review and returns same-file context', async () => {
+  const invocationState = createInvestigationInvocationState()
+  const chunkId = 'ddb-marshalling-guidance'
+  await traceGuidanceToolCall(invocationState, { query: 'DynamoDB marshalling' }, async () => ({
+    evidence: [{ chunkId }],
+  }))
   const output = await runFindUsagePatterns({
     repoPath: resolve(usageFixtures, 'ddb-undefined-review'),
     mode: 'investigate',
     migrationTopic: 'dynamodb-document-client-marshalling',
-  })
+    basedOnGuidanceChunkIds: [chunkId],
+  }, invocationState)
   assert.equal(output.ok, true)
   if (!output.ok) return
   assert.equal(output.matchedFindings, 1)
   assert.equal(output.findings[0].ruleId, 'DDB_UNDEFINED_MARSHALLING_REVIEW')
   assert.equal(output.findings[0].manualReview, true)
+  assert.deepEqual(output.evidenceScope, {
+    repositoryFindingsAreFacts: true,
+    migrationGuidanceIncluded: false,
+  })
   assert.deepEqual(output.relatedFindings.map((finding) => finding.ruleId), [
     'DDB_DOCUMENT_CLIENT_V2',
     'AWS_REQUEST_PROMISE_V2',
@@ -130,6 +144,6 @@ test('find_usage_patterns schemas enforce meaningful mode inputs', () => {
   assert.equal(findUsagePatternsInputSchema.safeParse({
     repoPath: '/tmp/repo',
     mode: 'investigate',
-    service: 'DynamoDB',
+    migrationTopic: 'dynamodb-document-client-marshalling',
   }).success, false)
 })

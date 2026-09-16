@@ -1,5 +1,9 @@
 import { Agent, BedrockModel } from '@strands-agents/sdk'
-import { getMigrationGuidance, getGuidanceCalls } from '../src/agent/tools/get-migration-guidance'
+import { getMigrationGuidance } from '../src/agent/tools/get-migration-guidance'
+import {
+  createInvestigationInvocationState,
+  getCompletedGuidanceRecords,
+} from '../src/agent/tools/investigation-tool-trace'
 import { embeddingCallCounts } from '../src/rag/embed'
 
 const expectedTopics: Record<string, string> = {
@@ -25,6 +29,35 @@ function backtickedApiIdentifiers(answer: string): string[] {
     }
   }
   return [...identifiers]
+}
+
+interface GuidanceEvidence {
+  chunkId: string
+  title: string
+  section: string
+  migrationTopic: string
+  sourceUrl: string
+  similarityScore: number
+  content: string
+}
+
+function isGuidanceEvidence(value: unknown): value is GuidanceEvidence {
+  return typeof value === 'object'
+    && value !== null
+    && 'chunkId' in value
+    && typeof value.chunkId === 'string'
+    && 'migrationTopic' in value
+    && typeof value.migrationTopic === 'string'
+    && 'sourceUrl' in value
+    && typeof value.sourceUrl === 'string'
+    && 'content' in value
+    && typeof value.content === 'string'
+    && 'title' in value
+    && typeof value.title === 'string'
+    && 'section' in value
+    && typeof value.section === 'string'
+    && 'similarityScore' in value
+    && typeof value.similarityScore === 'number'
 }
 
 async function main(): Promise<void> {
@@ -63,12 +96,16 @@ async function main(): Promise<void> {
   })
 
   console.log(`Agent question: ${prompt}`)
-  const result = await agent.invoke(prompt, { limits: { turns: 2, outputTokens: 800 } })
-  const calls = getGuidanceCalls()
+  const invocationState = createInvestigationInvocationState()
+  const result = await agent.invoke(prompt, {
+    invocationState,
+    limits: { turns: 2, outputTokens: 800 },
+  })
+  const calls = getCompletedGuidanceRecords(invocationState)
   const answer = result.toString()
   const expectedTopic = expectedTopics[prompt]
-  const expectedEvidence = calls.flatMap((call) => call.results).find((chunk) => chunk.migrationTopic === expectedTopic)
-  const returnedEvidence = calls.flatMap((call) => call.results)
+  const returnedEvidence = calls.flatMap((call) => call.evidence).filter(isGuidanceEvidence)
+  const expectedEvidence = returnedEvidence.find((chunk) => chunk.migrationTopic === expectedTopic)
   const sourceCited = returnedEvidence.some((chunk) => answer.includes(chunk.sourceUrl))
   const evidenceText = returnedEvidence.map((chunk) => chunk.content).join('\n')
   const unsupportedIdentifiers = backtickedApiIdentifiers(answer)
@@ -76,11 +113,12 @@ async function main(): Promise<void> {
 
   console.log(`get_migration_guidance invocations: ${calls.length}`)
   for (const [callIndex, call] of calls.entries()) {
-    console.log(`Tool call ${callIndex + 1}: ${call.query}; Titan input tokens: ${call.inputTokens ?? 'unavailable'}`)
-    for (const [rank, chunk] of call.results.entries()) {
-      console.log(`  ${rank + 1}. ${chunk.migrationTopic} | ${chunk.title} > ${chunk.section} | similarity ${chunk.similarity.toFixed(4)}`)
-      console.log(`     chunk ID: ${chunk.id} | source: ${chunk.sourceUrl}`)
-      console.log(`     excerpt: ${chunk.excerpt}`)
+    console.log(`Tool call ${callIndex + 1}: input=${JSON.stringify(call.input)}`)
+    for (const [rank, value] of call.evidence.entries()) {
+      if (!isGuidanceEvidence(value)) continue
+      console.log(`  ${rank + 1}. ${value.migrationTopic} | ${value.title} > ${value.section} | similarity ${value.similarityScore.toFixed(4)}`)
+      console.log(`     chunk ID: ${value.chunkId} | source: ${value.sourceUrl}`)
+      console.log(`     content: ${value.content}`)
     }
   }
   console.log(`Expected topic ${expectedTopic} retrieved: ${expectedEvidence ? 'PASS' : 'FAIL'}`)

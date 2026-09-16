@@ -2,7 +2,10 @@ import { tool } from '@strands-agents/sdk'
 import { z } from 'zod'
 import { scanDependencies } from '../../scanner/scan-dependencies'
 import type { DependencyScanResult } from '../../scanner/types'
-import { traceInvestigationToolCall } from './investigation-tool-trace'
+import {
+  createInvestigationInvocationState,
+  traceInvestigationToolCall,
+} from './investigation-tool-trace'
 import { scannerToolError, type ScannerToolErrorOutput } from './scanner-tool-error'
 
 export const scanDependenciesInputSchema = z.object({
@@ -31,9 +34,13 @@ export const scanDependenciesTool = tool({
   name: 'scan_dependencies',
   description: 'Read a local repository package.json as untrusted text and deterministically report AWS SDK v2 and modular v3 dependencies. This tool never executes repository code.',
   inputSchema: scanDependenciesInputSchema,
-  callback: (input) => traceInvestigationToolCall(
-    'scan_dependencies',
-    input,
-    () => runScanDependencies(input),
-  ),
+  callback: (input, context) => {
+    const invocationState = context?.invocationState ?? createInvestigationInvocationState()
+    return traceInvestigationToolCall(
+      invocationState,
+      'scan_dependencies',
+      input,
+      () => runScanDependencies(input),
+    )
+  },
 })
