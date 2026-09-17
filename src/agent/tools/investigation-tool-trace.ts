@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 export type InvestigationToolName =
   | 'scan_dependencies'
   | 'find_usage_patterns'
@@ -23,14 +25,55 @@ export interface CompletedGuidanceRecord {
   evidence: unknown[]
 }
 
+export interface InvestigationRunContext {
+  repository: {
+    identifier: string
+    path: string
+    url: string
+    commitSha: string
+  }
+  scanTimestamp: string
+}
+
 interface InvestigationRunState {
   nextCallId: number
   events: InvestigationToolEvent[]
   completedGuidance: CompletedGuidanceRecord[]
   completedGuidanceChunkIds: Set<string>
+  guidanceQueries: GuidanceQueryControl
 }
 
+interface GuidanceQueryControl {
+  maxQueries: number | null
+  attempted: number
+  permitted: number
+  successful: number
+  failed: number
+  budgetRejected: number
+  duplicateFailureSuppressed: number
+  serializedTail: Promise<void>
+  failedTargets: Map<string, string>
+}
+
+export interface GuidanceQueryBudgetSnapshot {
+  configured: number | null
+  attempted: number
+  permitted: number
+  successful: number
+  failed: number
+  rejected: number
+  duplicateFailureSuppressed: number
+}
+
+export type GuidanceQueryExecution<T> =
+  | { status: 'success'; value: T }
+  | { status: 'failed'; message: string }
+  | { status: 'budget-exceeded' }
+  | { status: 'previously-failed'; message: string }
+
 const runStateKey = 'migrationPilot.investigationRunState'
+const authorizedRepositoryPathKey = 'migrationPilot.authorizedRepositoryPath'
+const runContextKey = 'migrationPilot.runContext'
 
 function isRunState(value: unknown): value is InvestigationRunState {
   return typeof value === 'object'
@@ -39,6 +82,7 @@ function isRunState(value: unknown): value is InvestigationRunState {
     && Array.isArray(value.events)
     && 'completedGuidanceChunkIds' in value
     && value.completedGuidanceChunkIds instanceof Set
+    && 'guidanceQueries' in value
 }
 
 function runState(invocationState: InvestigationInvocationState): InvestigationRunState {
@@ -50,6 +94,17 @@ function runState(invocationState: InvestigationInvocationState): InvestigationR
     events: [],
     completedGuidance: [],
     completedGuidanceChunkIds: new Set<string>(),
+    guidanceQueries: {
+      maxQueries: null,
+      attempted: 0,
+      permitted: 0,
+      successful: 0,
+      failed: 0,
+      budgetRejected: 0,
+      duplicateFailureSuppressed: 0,
+      serializedTail: Promise.resolve(),
+      failedTargets: new Map<string, string>(),
+    },
   }
   invocationState[runStateKey] = created
   return created
@@ -66,6 +121,122 @@ export function createInvestigationInvocationState(): InvestigationInvocationSta
   const invocationState: InvestigationInvocationState = {}
   runState(invocationState)
   return invocationState
+}
+
+export function configureInvestigationRunContext(
+  invocationState: InvestigationInvocationState,
+  context: InvestigationRunContext,
+): void {
+  invocationState[runContextKey] = structuredClone(context)
+}
+
+export function getInvestigationRunContext(
+  invocationState: InvestigationInvocationState,
+): InvestigationRunContext | undefined {
+  const context = invocationState[runContextKey]
+  if (typeof context !== 'object' || context === null
+    || !('repository' in context) || typeof context.repository !== 'object' || context.repository === null
+    || !('scanTimestamp' in context) || typeof context.scanTimestamp !== 'string') return undefined
+  return context as InvestigationRunContext
+}
+
+export function configureGuidanceQueryBudget(
+  invocationState: InvestigationInvocationState,
+  maxQueries: number,
+): void {
+  if (!Number.isInteger(maxQueries) || maxQueries < 0) {
+    throw new RangeError('Guidance query budget must be a non-negative integer.')
+  }
+  const control = runState(invocationState).guidanceQueries
+  if (control.attempted > 0) {
+    throw new Error('Guidance query budget must be configured before guidance begins.')
+  }
+  control.maxQueries = maxQueries
+}
+
+export function getGuidanceQueryBudgetSnapshot(
+  invocationState: InvestigationInvocationState,
+): GuidanceQueryBudgetSnapshot {
+  const control = runState(invocationState).guidanceQueries
+  return {
+    configured: control.maxQueries,
+    attempted: control.attempted,
+    permitted: control.permitted,
+    successful: control.successful,
+    failed: control.failed,
+    rejected: control.budgetRejected,
+    duplicateFailureSuppressed: control.duplicateFailureSuppressed,
+  }
+}
+
+export async function executeGuidanceQuery<T>(
+  invocationState: InvestigationInvocationState,
+  targetKey: string,
+  callback: () => Promise<T>,
+  hasUsableGuidance: (value: T) => boolean = () => true,
+): Promise<GuidanceQueryExecution<T>> {
+  const control = runState(invocationState).guidanceQueries
+  control.attempted += 1
+
+  const prior = control.serializedTail
+  let release!: () => void
+  control.serializedTail = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await prior
+
+  try {
+    const previousFailure = control.failedTargets.get(targetKey)
+    if (previousFailure !== undefined) {
+      control.duplicateFailureSuppressed += 1
+      return { status: 'previously-failed', message: previousFailure }
+    }
+    if (control.maxQueries !== null && control.permitted >= control.maxQueries) {
+      control.budgetRejected += 1
+      return { status: 'budget-exceeded' }
+    }
+
+    control.permitted += 1
+    try {
+      const value = await callback()
+      if (!hasUsableGuidance(value)) {
+        const message = 'No official AWS migration guidance matched this target.'
+        control.failed += 1
+        control.failedTargets.set(targetKey, message)
+        return { status: 'failed', message }
+      }
+      control.successful += 1
+      return { status: 'success', value }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      control.failed += 1
+      control.failedTargets.set(targetKey, message)
+      return { status: 'failed', message }
+    }
+  } finally {
+    release()
+  }
+}
+
+export function authorizeInvestigationRepositoryPath(
+  invocationState: InvestigationInvocationState,
+  repositoryPath: string,
+): void {
+  invocationState[authorizedRepositoryPathKey] = resolve(repositoryPath)
+}
+
+export function validateInvestigationRepositoryPath(
+  invocationState: InvestigationInvocationState,
+  requestedPath: string,
+): { ok: true } | { ok: false; message: string } {
+  const authorizedPath = invocationState[authorizedRepositoryPathKey]
+  if (typeof authorizedPath !== 'string') return { ok: true }
+  return resolve(requestedPath) === authorizedPath
+    ? { ok: true }
+    : {
+      ok: false,
+      message: 'The requested repository path is not the checkout authorized for this analysis run.',
+    }
 }
 
 export async function traceInvestigationToolCall<T>(
@@ -96,6 +267,7 @@ export async function traceInvestigationToolCall<T>(
 }
 
 interface GuidanceEvidenceOutput {
+  ok?: boolean
   evidence: Array<{ chunkId: string } & Record<string, unknown>>
 }
 
@@ -110,6 +282,7 @@ export function traceGuidanceToolCall<T extends GuidanceEvidenceOutput>(
     input,
     callback,
     (output, callId, state) => {
+      if (output.ok === false) return
       const chunkIds = output.evidence.map((item) => item.chunkId)
       state.completedGuidance.push({
         callId,

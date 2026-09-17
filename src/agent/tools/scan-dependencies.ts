@@ -5,6 +5,7 @@ import type { DependencyScanResult } from '../../scanner/types'
 import {
   createInvestigationInvocationState,
   traceInvestigationToolCall,
+  validateInvestigationRepositoryPath,
 } from './investigation-tool-trace'
 import { scannerToolError, type ScannerToolErrorOutput } from './scanner-tool-error'
 
@@ -40,7 +41,18 @@ export const scanDependenciesTool = tool({
       invocationState,
       'scan_dependencies',
       input,
-      () => runScanDependencies(input),
+      () => {
+        const authorization = validateInvestigationRepositoryPath(invocationState, input.repoPath)
+        return authorization.ok
+          ? runScanDependencies(input)
+          : Promise.resolve({
+            ok: false as const,
+            error: {
+              code: 'REPOSITORY_PATH_NOT_AUTHORIZED',
+              message: authorization.message,
+            },
+          })
+      },
     )
   },
 })

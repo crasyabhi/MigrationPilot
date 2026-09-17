@@ -7,14 +7,18 @@ import {
   type UsageFinding,
 } from '../scanner/types'
 import {
-  acquireRepository,
-  cleanupAcquiredRepository,
   RepositoryAcquisitionError,
+  type AcquiredRepository,
   type RepositoryAcquisitionOptions,
 } from './acquire-repository'
 import { repositoryPreflightLimits } from './limits'
-import type { RepositoryPreflightFailure, RepositoryPreflightResult } from './types'
+import type {
+  CanonicalGitHubRepository,
+  RepositoryPreflightFailure,
+  RepositoryPreflightResult,
+} from './types'
 import { validateGitHubRepositoryUrl } from './validate-github-url'
+import { withAcquiredRepository } from './with-acquired-repository'
 
 export interface RepositoryPreflightDependencies {
   acquisition?: RepositoryAcquisitionOptions
@@ -56,12 +60,29 @@ export async function runRepositoryPreflight(
   const validation = validateGitHubRepositoryUrl(repositoryUrl)
   if (!validation.ok) return validation
 
-  let workspacePath: string | undefined
-  let result: RepositoryPreflightResult
-
   try {
-    const acquired = await acquireRepository(validation.repository, dependencies.acquisition)
-    workspacePath = acquired.workspacePath
+    return await withAcquiredRepository(
+      validation.repository,
+      (acquired) => runDeterministicRepositoryPreflight(
+        validation.repository,
+        acquired,
+        dependencies,
+      ),
+      dependencies.acquisition,
+    )
+  } catch (error) {
+    return error instanceof RepositoryAcquisitionError
+      ? { ok: false, error: error.preflightError }
+      : scannerFailure(error)
+  }
+}
+
+export async function runDeterministicRepositoryPreflight(
+  repository: CanonicalGitHubRepository,
+  acquired: AcquiredRepository,
+  dependencies: Pick<RepositoryPreflightDependencies, 'dependencyScanner' | 'usageScanner'> = {},
+): Promise<RepositoryPreflightResult> {
+  try {
     const dependencyScanner = dependencies.dependencyScanner ?? scanDependencies
     const usageScanner = dependencies.usageScanner ?? findUsagePatterns
     const dependencyScan = await dependencyScanner(acquired.repositoryPath)
@@ -69,28 +90,15 @@ export async function runRepositoryPreflight(
     const detectedServices = [...new Set(findings.map((finding) => finding.service))]
       .sort((left, right) => left.localeCompare(right))
 
-    result = {
+    return {
       ok: true,
-      repository: { ...validation.repository, commitSha: acquired.commitSha },
+      repository: { ...repository, commitSha: acquired.commitSha },
       dependencyScan: { ...dependencyScan, packageJsonPath: 'package.json' },
       findings,
       detectedServices,
       repositorySizeBytes: acquired.repositorySizeBytes,
     }
   } catch (error) {
-    result = error instanceof RepositoryAcquisitionError
-      ? { ok: false, error: error.preflightError }
-      : scannerFailure(error)
+    return scannerFailure(error)
   }
-
-  if (workspacePath !== undefined) {
-    try {
-      await cleanupAcquiredRepository(workspacePath, dependencies.acquisition)
-    } catch {
-      return failure('WORKSPACE_CLEANUP_FAILED', 'The isolated repository workspace could not be removed.')
-    }
-  }
-
-  return result
 }
-
