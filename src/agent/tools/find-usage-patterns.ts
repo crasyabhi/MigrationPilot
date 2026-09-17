@@ -6,6 +6,7 @@ import {
   createInvestigationInvocationState,
   traceInvestigationToolCall,
   validateCompletedGuidanceChunkIds,
+  validateInvestigationRepositoryPath,
   type InvestigationInvocationState,
 } from './investigation-tool-trace'
 import { scannerToolError, type ScannerToolErrorOutput } from './scanner-tool-error'
@@ -199,7 +200,18 @@ export const findUsagePatternsTool = tool({
       invocationState,
       'find_usage_patterns',
       input,
-      () => runFindUsagePatterns(input, invocationState),
+      () => {
+        const authorization = validateInvestigationRepositoryPath(invocationState, input.repoPath)
+        return authorization.ok
+          ? runFindUsagePatterns(input, invocationState)
+          : Promise.resolve({
+            ok: false as const,
+            error: {
+              code: 'REPOSITORY_PATH_NOT_AUTHORIZED',
+              message: authorization.message,
+            },
+          })
+      },
     )
   },
 })

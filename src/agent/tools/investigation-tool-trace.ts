@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 export type InvestigationToolName =
   | 'scan_dependencies'
   | 'find_usage_patterns'
@@ -31,6 +33,7 @@ interface InvestigationRunState {
 }
 
 const runStateKey = 'migrationPilot.investigationRunState'
+const authorizedRepositoryPathKey = 'migrationPilot.authorizedRepositoryPath'
 
 function isRunState(value: unknown): value is InvestigationRunState {
   return typeof value === 'object'
@@ -66,6 +69,27 @@ export function createInvestigationInvocationState(): InvestigationInvocationSta
   const invocationState: InvestigationInvocationState = {}
   runState(invocationState)
   return invocationState
+}
+
+export function authorizeInvestigationRepositoryPath(
+  invocationState: InvestigationInvocationState,
+  repositoryPath: string,
+): void {
+  invocationState[authorizedRepositoryPathKey] = resolve(repositoryPath)
+}
+
+export function validateInvestigationRepositoryPath(
+  invocationState: InvestigationInvocationState,
+  requestedPath: string,
+): { ok: true } | { ok: false; message: string } {
+  const authorizedPath = invocationState[authorizedRepositoryPathKey]
+  if (typeof authorizedPath !== 'string') return { ok: true }
+  return resolve(requestedPath) === authorizedPath
+    ? { ok: true }
+    : {
+      ok: false,
+      message: 'The requested repository path is not the checkout authorized for this analysis run.',
+    }
 }
 
 export async function traceInvestigationToolCall<T>(
