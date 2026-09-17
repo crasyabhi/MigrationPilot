@@ -2,6 +2,7 @@ export type InvestigationToolName =
   | 'scan_dependencies'
   | 'find_usage_patterns'
   | 'get_migration_guidance'
+  | 'publish_migration_report'
 
 export type InvestigationInvocationState = Record<string, unknown>
 

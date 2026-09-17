@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:scanner": "tsx --test tests/scanner/*.test.ts",
-    "test:tools": "tsx --test tests/agent-tools/*.test.ts"
+    "test:tools": "tsx --test tests/agent-tools/*.test.ts",
+    "test:reports": "tsx --test tests/reports/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1133.0",
