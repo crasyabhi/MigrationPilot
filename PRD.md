@@ -227,7 +227,7 @@ Record scan stages, latency, tool calls, failures, files scanned, findings gener
 ### Explainability
 Every finding must be inspectable.
 
-## 8. Out of scope before submission
+## 8. Current out of scope
 
 - source rewriting
 - PR generation
@@ -263,7 +263,7 @@ Pin all final-demo SHAs.
 
 ## 10. Success criteria
 
-Minimum strong submission:
+Core quality bar:
 - hero repo scans end-to-end
 - at least four core rules reliable
 - RAG evidence visible
@@ -273,7 +273,7 @@ Minimum strong submission:
 - unchanged-scan suppression works
 - demo/README contain only real metrics
 
-Excellent submission:
+Further product polish:
 - six rules reliable
 - one non-obvious manual-review finding
 - strong precision/recall

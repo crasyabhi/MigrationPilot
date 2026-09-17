@@ -1,0 +1,1 @@
+{"hasAwsSdkV2":true,"expectedFindings":[{"ruleId":"DDB_DOCUMENT_CLIENT_V2","filePath":"index.js","line":2,"manualReview":false},{"ruleId":"DDB_UNDEFINED_MARSHALLING_REVIEW","filePath":"index.js","line":6,"manualReview":true},{"ruleId":"AWS_REQUEST_PROMISE_V2","filePath":"index.js","line":7,"manualReview":false}]}

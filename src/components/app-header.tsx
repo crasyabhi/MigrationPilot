@@ -37,13 +37,14 @@ export function AppHeader() {
         <div className="flex items-center gap-3 sm:gap-5">
           <span className="hidden items-center gap-2 text-xs text-zinc-500 sm:flex">
             <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-            Local preview
+            Evidence-grounded
           </span>
           <Link
             href="/reports/demo"
             className="rounded-lg border border-white/[0.09] bg-white/[0.04] px-3.5 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-white/[0.16] hover:bg-white/[0.07] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           >
-            View demo report
+            <span className="sm:hidden">Demo</span>
+            <span className="hidden sm:inline">View demo report</span>
           </Link>
         </div>
       </div>

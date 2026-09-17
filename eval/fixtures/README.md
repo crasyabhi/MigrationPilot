@@ -1,15 +1,10 @@
-# Evaluation Fixtures
+# Evaluation fixtures
 
-Create 15 tiny fixture projects here.
+These 15 tiny repositories are hand-labeled inputs for the deterministic scanner.
+Each fixture contains a `package.json`, source or documentation text where relevant,
+and an `expected.json` file with the expected v2 dependency classification and exact
+finding labels (`ruleId`, relative file path, line, and manual-review state).
 
-Each fixture:
-```text
-fixture-name/
-├── package.json
-├── src/example.js
-└── expected.json
-```
-
-Fixtures should be minimal but realistic. Do not format them only to match your regex. Include negative cases so precision is measured.
-
-See `EVALUATION.md` for the recommended 15 cases and metrics.
+Run `npm run eval` to recompute `eval/results/latest.json` and
+`eval/results/latest.md`. The evaluator reads repository files as text and never
+executes fixture code, installs fixture dependencies, or invokes AWS.

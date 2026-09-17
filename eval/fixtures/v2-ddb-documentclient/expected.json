@@ -1,0 +1,1 @@
+{"hasAwsSdkV2":true,"expectedFindings":[{"ruleId":"DDB_DOCUMENT_CLIENT_V2","filePath":"index.js","line":2,"manualReview":false}]}

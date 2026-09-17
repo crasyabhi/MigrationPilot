@@ -4,7 +4,7 @@ import test from 'node:test'
 import { findUsagePatterns } from '../../src/scanner/find-usage-patterns'
 import { UsageScanError, type UsageRuleId } from '../../src/scanner/types'
 
-const fixturesPath = resolve(process.cwd(), 'tests/fixtures/usage-patterns')
+const fixturesPath = resolve(process.cwd(), 'eval/fixtures')
 
 function fixture(name: string): string {
   return resolve(fixturesPath, name)

@@ -1,85 +1,42 @@
-# MigrationPilot — Implementation Checklist
+# MigrationPilot implementation checklist
 
-## Foundations
-- [ ] Next.js TypeScript app
-- [ ] `.env.example`
-- [ ] AWS credentials configured
-- [ ] Bedrock invocation verified
-- [ ] PostgreSQL/pgvector verified
-- [ ] Strands custom tool verified
+## Completed core
 
-## RAG
-- [ ] curated AWS URLs
-- [ ] main-article extraction
-- [ ] heading-aware chunks
-- [ ] Titan embeddings
-- [ ] vector retrieval
-- [ ] manual Hit@3 checks
-- [ ] source URL/section preserved
+- [x] Next.js TypeScript application and responsive dashboard
+- [x] Local PostgreSQL/pgvector through Docker Compose
+- [x] Curated official AWS corpus and heading-aware chunks
+- [x] Titan document/query embeddings with development call limits
+- [x] Exact pgvector cosine retrieval
+- [x] Safe public GitHub clone, commit capture, limits, and cleanup
+- [x] Deterministic dependency and source scanners
+- [x] Six-rule catalog with exact evidence and manual-review state
+- [x] Four-tool Strands agent with prompt-injection defenses
+- [x] Run-scoped provenance, guidance budget, serialization, and suppression
+- [x] Graceful guidance gaps and fact-only findings
+- [x] State-backed report assembly and deterministic plan wording
+- [x] PostgreSQL report persistence and report routes
+- [x] Explicit-submission production analysis endpoint
+- [x] Mocked web integration coverage
+- [x] Fifteen hand-labeled evaluation fixtures and saved metrics
+- [x] Professional README, failure log, demo notes, and deployment guidance
 
-## Scanner
-- [ ] GitHub URL validation
-- [ ] shallow clone + timeout
-- [ ] commit SHA
-- [ ] file allowlist/ignore dirs
-- [ ] max file size
-- [ ] dependencies/devDependencies/optionalDependencies
-- [ ] no repository code execution
+## Before a public hosted release
 
-## Rules
-- [ ] DocumentClient
-- [ ] S3 client
-- [ ] global config
-- [ ] signed URL
-- [ ] AWS-context `.promise()`
-- [ ] DDB manual-review heuristic
-- [ ] line numbers/snippets/severity/confidence
+- [ ] Choose a long-running hosting environment with Git and writable temporary storage
+- [ ] Provision PostgreSQL/pgvector and apply `db/schema.sql`
+- [ ] Configure least-privilege workload credentials and secret management
+- [ ] Ingest the approved RAG corpus with explicit cost authorization
+- [ ] Add server-side idempotency and a durable job boundary for multi-user traffic
+- [ ] Configure concurrency, timeout, storage, and log-redaction monitoring
+- [ ] Capture portfolio screenshots
+- [ ] Run one explicitly authorized live smoke test
+- [ ] Verify no secrets or temporary workspaces are tracked
 
-## Agent
-- [ ] four tools
-- [ ] strict system prompt
-- [ ] prompt-injection defense
-- [ ] no unsupported migration claims
-- [ ] manual-review behavior
-- [ ] no redundant retrieval loops
+## Deferred
 
-## Persistence
-- [ ] repositories
-- [ ] scans
-- [ ] findings
-- [ ] reports
-- [ ] fingerprint
-- [ ] latency/tool calls
-
-## Evaluation
-- [ ] 15 fixtures
-- [ ] negative cases
-- [ ] recall/precision
-- [ ] recommendation accuracy
-- [ ] RAG Hit@3
-- [ ] tool calls/latency
-- [ ] saved results + failure log
-
-## UI
-- [ ] landing/repo input
-- [ ] progress
-- [ ] clean state
-- [ ] report summary
-- [ ] finding detail
-- [ ] repo evidence + AWS evidence
-- [ ] migration plan
-- [ ] manual review badges
-
-## Scheduled behavior
-- [ ] scheduled trigger
-- [ ] unchanged fingerprint suppression
-- [ ] changed findings surfaced
-
-## Demo/submission
-- [ ] pinned hero/secondary/clean repos
-- [ ] final benchmark values
-- [ ] architecture diagram
-- [ ] screenshots
-- [ ] video ≤5 min
-- [ ] public repo + license + setup
-- [ ] no secrets
+- [ ] scheduled rescans and fingerprint notifications
+- [ ] private repositories
+- [ ] broader AWS service/rule coverage
+- [ ] AST-based analysis when evaluation demonstrates a need
+- [ ] versioned automated RAG evaluation
+- [ ] MCP, AgentCore, source rewriting, or PR generation

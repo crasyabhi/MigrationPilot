@@ -124,7 +124,7 @@ migration-pilot/
 └── README.md
 ```
 
-Avoid a monorepo for the hackathon.
+Keep the project in one application repository; a monorepo adds no current value.
 
 ## 4. End-to-end data flow
 

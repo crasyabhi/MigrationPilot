@@ -12,7 +12,7 @@ import {
 import { runScanDependencies } from '../../src/agent/tools/scan-dependencies'
 
 const dependencyFixtures = resolve(process.cwd(), 'tests/fixtures/scanner')
-const usageFixtures = resolve(process.cwd(), 'tests/fixtures/usage-patterns')
+const usageFixtures = resolve(process.cwd(), 'eval/fixtures')
 
 test('scan_dependencies exposes a v2 dependency result', async () => {
   const output = await runScanDependencies({

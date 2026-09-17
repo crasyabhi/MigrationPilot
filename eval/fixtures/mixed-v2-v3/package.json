@@ -1,0 +1,1 @@
+{"name":"eval-mixed-v2-v3","private":true,"dependencies":{"aws-sdk":"^2.1692.0","@aws-sdk/client-s3":"^3.900.0"}}

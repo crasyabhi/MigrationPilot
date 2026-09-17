@@ -3,7 +3,7 @@
 Read `START_HERE.md`, `PRD.md`, `DESIGN.md`, `BUILD_PLAN.md`, `DECISIONS.md`, and `docs/RULE_CATALOG.md` before broad changes.
 
 ## Mission
-Build MigrationPilot for the AWS Agents for Humans hackathon.
+Build and maintain MigrationPilot as a technically credible personal engineering project.
 
 Scope: **AWS SDK for JavaScript v2 → v3 migration auditing only.**
 

@@ -1,0 +1,1 @@
+{"hasAwsSdkV2":true,"expectedFindings":[{"ruleId":"S3_CLIENT_V2","filePath":"index.js","line":2,"manualReview":false},{"ruleId":"AWS_GLOBAL_CONFIG_V2","filePath":"index.js","line":3,"manualReview":true},{"ruleId":"S3_GET_SIGNED_URL_V2","filePath":"index.js","line":4,"manualReview":false},{"ruleId":"AWS_REQUEST_PROMISE_V2","filePath":"index.js","line":5,"manualReview":false}]}
