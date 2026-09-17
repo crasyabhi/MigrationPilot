@@ -3,7 +3,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS repositories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  url text NOT NULL,
+  url text,
+  repository_path text,
   owner text,
   name text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS scans (
   aws_sdk_v2_detected boolean,
   declared_v2_version text,
   dependency_section text,
+  modular_v3_packages jsonb NOT NULL DEFAULT '[]'::jsonb,
   detected_services jsonb NOT NULL DEFAULT '[]'::jsonb,
   findings_fingerprint text,
   tool_calls integer NOT NULL DEFAULT 0,
@@ -41,6 +43,7 @@ CREATE TABLE IF NOT EXISTS findings (
   manual_review boolean NOT NULL DEFAULT false,
   file_path text NOT NULL,
   line_number integer,
+  column_number integer,
   snippet text,
   migration_topic text NOT NULL,
   rationale text NOT NULL,
@@ -73,6 +76,12 @@ CREATE TABLE IF NOT EXISTS migration_docs (
   embedding vector(1024) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive upgrades for databases initialized from an earlier checkpoint.
+ALTER TABLE repositories ALTER COLUMN url DROP NOT NULL;
+ALTER TABLE repositories ADD COLUMN IF NOT EXISTS repository_path text;
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS modular_v3_packages jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS column_number integer;
 
 CREATE INDEX IF NOT EXISTS idx_scans_repo_started ON scans(repository_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_findings_scan ON findings(scan_id);

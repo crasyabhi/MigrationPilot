@@ -1,23 +1,42 @@
 import { tool } from '@strands-agents/sdk'
 import { z } from 'zod'
+import { retrieveMigrationDocs } from '../../rag/retrieve'
 import {
-  retrieveMigrationDocs,
-  type RetrievalResult,
-} from '../../rag/retrieve'
+  createInvestigationInvocationState,
+  traceGuidanceToolCall,
+} from './investigation-tool-trace'
 
-export type GuidanceCall = {
+type GuidanceInput = {
   query: string
-  service?: string
+  service?: 'DynamoDB' | 'S3' | 'Core'
   migrationTopic?: string
-  topK: number
-  results: RetrievalResult[]
-  inputTokens: number | null
+  topK?: number
 }
 
-const guidanceCalls: GuidanceCall[] = []
+async function runGetMigrationGuidance({
+  query,
+  service,
+  migrationTopic,
+  topK,
+}: GuidanceInput) {
+  const boundedTopK = Math.min(topK ?? 3, 3)
+  console.log(`get_migration_guidance invoked: query=${JSON.stringify(query)}, service=${service ?? 'any'}, topic=${migrationTopic ?? 'any'}, topK=${boundedTopK}`)
 
-export function getGuidanceCalls(): GuidanceCall[] {
-  return guidanceCalls
+  const retrieved = await retrieveMigrationDocs(query, { service, migrationTopic, topK: boundedTopK })
+  console.log(`get_migration_guidance returned ${retrieved.results.length} official AWS chunks.`)
+
+  return {
+    query,
+    evidence: retrieved.results.map((result) => ({
+      chunkId: result.id,
+      title: result.title,
+      section: result.section,
+      migrationTopic: result.migrationTopic,
+      sourceUrl: result.sourceUrl,
+      similarityScore: result.similarity,
+      content: result.content,
+    })),
+  }
 }
 
 export const getMigrationGuidance = tool({
@@ -29,34 +48,12 @@ export const getMigrationGuidance = tool({
     migrationTopic: z.string().optional().describe('Optional migration topic filter'),
     topK: z.number().int().positive().optional().describe('Maximum documentation sections to return; capped at 3'),
   }),
-  callback: async ({ query, service, migrationTopic, topK }) => {
-    const call: GuidanceCall = {
-      query,
-      service,
-      migrationTopic,
-      topK: Math.min(topK ?? 3, 3),
-      results: [],
-      inputTokens: null,
-    }
-    guidanceCalls.push(call)
-    console.log(`get_migration_guidance invoked: query=${JSON.stringify(query)}, service=${service ?? 'any'}, topic=${migrationTopic ?? 'any'}, topK=${call.topK}`)
-
-    const retrieved = await retrieveMigrationDocs(query, { service, migrationTopic, topK: call.topK })
-    call.results = retrieved.results
-    call.inputTokens = retrieved.inputTokens
-    console.log(`get_migration_guidance returned ${retrieved.results.length} official AWS chunks.`)
-
-    return {
-      query,
-      evidence: retrieved.results.map((result) => ({
-        chunkId: result.id,
-        title: result.title,
-        section: result.section,
-        migrationTopic: result.migrationTopic,
-        sourceUrl: result.sourceUrl,
-        similarityScore: result.similarity,
-        content: result.content,
-      })),
-    }
+  callback: (input, context) => {
+    const invocationState = context?.invocationState ?? createInvestigationInvocationState()
+    return traceGuidanceToolCall(
+      invocationState,
+      input,
+      () => runGetMigrationGuidance(input),
+    )
   },
 })
