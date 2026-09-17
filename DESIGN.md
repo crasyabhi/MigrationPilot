@@ -202,7 +202,11 @@ Input:
 Returns small evidence chunks with title, URL, section, score, and content.
 
 ### `publish_migration_report`
-Persists a structured report. Plan synthesis belongs to the agent, not this tool.
+The agent supplies only ordered planning decisions: step type, affected finding IDs,
+supporting guidance chunk IDs, and manual-review state. The tool validates those
+references against same-run scanner and retrieval state, generates bounded plan
+wording deterministically, and persists the structured report. Plan ordering and
+evidence selection belong to the agent; authoritative report prose does not.
 
 ## 6. Agent prompt rules
 

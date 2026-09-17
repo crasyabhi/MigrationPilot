@@ -26,7 +26,6 @@ import type { ScanDependenciesToolOutput } from './scan-dependencies'
 const compactPlanStepSchema = z.object({
   order: z.number().int().positive(),
   type: z.enum(['repository-review', 'evidence-backed-migration']),
-  action: z.string().min(1).max(800),
   affectedFindingIds: z.array(z.string().min(1)).min(1),
   supportingGuidanceChunkIds: z.array(z.string().min(1)),
   manualReviewRequired: z.boolean(),
@@ -189,6 +188,36 @@ function reportEvidence(guidance: CompletedGuidanceEvidence): ReportGuidanceEvid
   }
 }
 
+function findingSummary(findings: IdentifiedUsageFinding[]): string {
+  const ruleIds = [...new Set(findings.map((finding) => finding.ruleId))]
+    .sort((left, right) => left.localeCompare(right))
+  const count = findings.length
+  const noun = count === 1 ? 'finding' : 'findings'
+  return `${count} detected ${ruleIds.join(', ')} ${noun}`
+}
+
+function guidanceTopicSummary(guidance: CompletedGuidanceEvidence[]): string {
+  const topics = [...new Set(guidance.map((item) => item.migrationTopic))]
+    .sort((left, right) => left.localeCompare(right))
+  return `${topics.length === 1 ? 'migration topic' : 'migration topics'} ${topics.join(', ')}`
+}
+
+function generatedPlanAction(
+  step: PublishMigrationReportDecision['plan'][number],
+  findings: IdentifiedUsageFinding[],
+  guidance: CompletedGuidanceEvidence[],
+): string {
+  const findingsText = findingSummary(findings)
+  if (step.type === 'repository-review') {
+    const reference = findings.length === 1 ? 'this finding' : 'these findings'
+    return `Review ${findingsText} as repository evidence. Migration guidance for ${reference} was not established in this investigation, so no migration behavior or replacement is recommended.`
+  }
+
+  const review = step.manualReviewRequired ? 'Review' : 'Plan migration work for'
+  const manualReview = step.manualReviewRequired ? ' Developer judgment remains required.' : ''
+  return `${review} ${findingsText} using the retrieved official AWS guidance for ${guidanceTopicSummary(guidance)}.${manualReview}`
+}
+
 export type MigrationReportAssemblyResult =
   | { ok: true; report: PublishMigrationReportInput }
   | { ok: false; error: PublishMigrationReportError }
@@ -220,6 +249,10 @@ export function assembleMigrationReport(
   }
   const guidanceById = completedGuidance(invocationState)
   const evidenceByFinding = new Map<string, Map<string, CompletedGuidanceEvidence>>()
+  const resolvedPlan = new Map<number, {
+    findings: IdentifiedUsageFinding[]
+    guidance: CompletedGuidanceEvidence[]
+  }>()
 
   for (const [index, step] of decision.plan.entries()) {
     if (step.order !== index + 1) {
@@ -248,6 +281,7 @@ export function assembleMigrationReport(
           step.order,
         )
       }
+      resolvedPlan.set(step.order, { findings: affectedFindings, guidance: [] })
       continue
     }
     if (step.supportingGuidanceChunkIds.length === 0) {
@@ -274,6 +308,7 @@ export function assembleMigrationReport(
       for (const guidance of supporting) attached.set(guidance.chunkId, guidance)
       evidenceByFinding.set(finding.findingId, attached)
     }
+    resolvedPlan.set(step.order, { findings: affectedFindings, guidance: stepGuidance })
   }
 
   const guidanceIncomplete = [...findingsById.keys()].some((id) =>
@@ -315,7 +350,12 @@ export function assembleMigrationReport(
     plan: decision.plan.map((step) => ({
       order: step.order,
       type: step.type,
-      action: step.action,
+      // Persisted prose is rendered only from same-run scanner and guidance state.
+      action: generatedPlanAction(
+        step,
+        resolvedPlan.get(step.order)!.findings,
+        resolvedPlan.get(step.order)!.guidance,
+      ),
       affectedFindings: step.affectedFindingIds.map((findingId) => {
         const finding = findingsById.get(findingId)!
         return {
@@ -364,7 +404,7 @@ export { loadMigrationReport }
 
 export const publishMigrationReportTool = tool({
   name: 'publish_migration_report',
-  description: 'Publish a grounded report from same-run authoritative evidence. Supply only compact status and plan decisions using findingId and chunkId references; never resend repository metadata, findings, snippets, locations, URLs, or evidence text.',
+  description: 'Publish a grounded report from same-run authoritative evidence. Supply only compact status and plan decisions using findingId and chunkId references. The application generates authoritative plan wording; never supply action prose, repository metadata, findings, snippets, locations, URLs, or evidence text.',
   inputSchema: publishMigrationReportDecisionSchema,
   callback: (input, context) => {
     const invocationState = context?.invocationState ?? createInvestigationInvocationState()

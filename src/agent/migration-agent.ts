@@ -98,7 +98,7 @@ export const productionMigrationAgentSystemPrompt = [
   'If a scanner finding has no supporting retrieved migration evidence, keep it as a repository fact with empty guidanceEvidence. Do not invent a recommendation for it.',
   'In particular, AWS_REQUEST_PROMISE_V2 does not authorize claims about .promise() migration behavior unless retrieved official evidence explicitly establishes those claims.',
   'Create an ordered plan using only persisted findings. Use repository-review for evidence gaps and evidence-backed-migration only when the affected finding includes the referenced completed guidance chunks.',
-  'Call publish_migration_report exactly once after the investigation is complete. Its compact input contains only status and plan decisions referencing findingId and completed guidance chunkId values; never resend repository metadata, findings, snippets, locations, URLs, or guidance content.',
+  'Call publish_migration_report exactly once after the investigation is complete. Its compact input contains only status, step type and order, findingId references, completed guidance chunkId references, and manual-review state. Do not supply action prose; the application generates grounded plan wording from trusted same-run state. Never resend repository metadata, findings, snippets, locations, URLs, or guidance content.',
   'The task is complete only when publish_migration_report returns ok: true. If publication fails, do not claim success.',
   'After successful publication, respond only with a brief publication confirmation and the returned report ID. Do not restate, expand, or add migration recommendations.',
 ].join(' ')

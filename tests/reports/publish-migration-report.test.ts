@@ -134,7 +134,6 @@ before(async () => {
       {
         order: 1,
         type: 'evidence-backed-migration',
-        action: 'Apply the retrieved DynamoDB DocumentClient migration guidance.',
         affectedFindingIds: [findingId('DDB_DOCUMENT_CLIENT_V2')],
         supportingGuidanceChunkIds: [docChunkId],
         manualReviewRequired: false,
@@ -142,7 +141,6 @@ before(async () => {
       {
         order: 2,
         type: 'evidence-backed-migration',
-        action: 'Review undefined-value intent using the retrieved marshalling guidance.',
         affectedFindingIds: [findingId('DDB_UNDEFINED_MARSHALLING_REVIEW')],
         supportingGuidanceChunkIds: [marshallingChunkId],
         manualReviewRequired: true,
@@ -150,7 +148,6 @@ before(async () => {
       {
         order: 3,
         type: 'repository-review',
-        action: 'Review the detected promise usage because migration guidance was unavailable.',
         affectedFindingIds: [findingId('AWS_REQUEST_PROMISE_V2')],
         supportingGuidanceChunkIds: [],
         manualReviewRequired: false,
@@ -171,6 +168,18 @@ test('valid compact publication decision assembles a complete authoritative repo
   assert.equal(assembled.report.findings.length, 3)
   assert.equal(assembled.report.plan.length, 3)
   assert.equal(assembled.report.status, 'guidance_incomplete')
+  assert.equal(
+    assembled.report.plan[0].action,
+    'Plan migration work for 1 detected DDB_DOCUMENT_CLIENT_V2 finding using the retrieved official AWS guidance for migration topic dynamodb-document-client.',
+  )
+  assert.equal(
+    assembled.report.plan[1].action,
+    'Review 1 detected DDB_UNDEFINED_MARSHALLING_REVIEW finding using the retrieved official AWS guidance for migration topic dynamodb-undefined-marshalling. Developer judgment remains required.',
+  )
+  assert.equal(
+    assembled.report.plan[2].action,
+    'Review 1 detected AWS_REQUEST_PROMISE_V2 finding as repository evidence. Migration guidance for this finding was not established in this investigation, so no migration behavior or replacement is recommended.',
+  )
 })
 
 test('repository metadata and dependency data come from authoritative run state', () => {
@@ -213,6 +222,16 @@ test('compact schema rejects attempts to alter finding evidence', () => {
     plan: Array<PublishMigrationReportDecision['plan'][number] & { filePath?: string }>
   }
   decision.plan[0].filePath = 'invented.js'
+  const assembled = assembleMigrationReport(decision, invocationState)
+  assert.equal(assembled.ok, false)
+  if (!assembled.ok) assert.equal(assembled.error.code, 'INVALID_PUBLICATION_DECISION')
+})
+
+test('compact schema rejects model-authored plan prose', () => {
+  const decision = copyDecision() as PublishMigrationReportDecision & {
+    plan: Array<PublishMigrationReportDecision['plan'][number] & { action?: string }>
+  }
+  decision.plan[0].action = 'Invent unsupported send() and sibling Command migration claims.'
   const assembled = assembleMigrationReport(decision, invocationState)
   assert.equal(assembled.ok, false)
   if (!assembled.ok) assert.equal(assembled.error.code, 'INVALID_PUBLICATION_DECISION')
@@ -339,6 +358,7 @@ test('publish tool schema is compact and excludes report evidence fields', () =>
   assert.equal(JSON.stringify(validDecision).includes('snippet'), false)
   assert.equal(JSON.stringify(validDecision).includes('sourceUrl'), false)
   assert.equal(JSON.stringify(validDecision).includes('filePath'), false)
+  assert.equal(JSON.stringify(validDecision).includes('action'), false)
 })
 
 test('mocked demo shape publishes one guided DynamoDB and five fact-only promise findings', async () => {
@@ -396,13 +416,12 @@ test('mocked demo shape publishes one guided DynamoDB and five fact-only promise
     status: 'guidance_incomplete',
     plan: [
       {
-        order: 1, type: 'evidence-backed-migration', action: 'Apply the retrieved DynamoDB guidance.',
+        order: 1, type: 'evidence-backed-migration',
         affectedFindingIds: [ddb.findingId], supportingGuidanceChunkIds: [docChunkId],
         manualReviewRequired: false,
       },
       {
         order: 2, type: 'repository-review',
-        action: 'Review the detected promise usages because guidance was unavailable.',
         affectedFindingIds: promises.map((finding) => finding.findingId),
         supportingGuidanceChunkIds: [], manualReviewRequired: false,
       },
@@ -422,4 +441,16 @@ test('mocked demo shape publishes one guided DynamoDB and five fact-only promise
   assert.equal(loaded.report.plan.some((step) =>
     step.type === 'evidence-backed-migration'
     && step.affectedFindings.some((finding) => finding.ruleId === 'AWS_REQUEST_PROMISE_V2')), false)
+  assert.equal(
+    loaded.report.plan[0].action,
+    'Plan migration work for 1 detected DDB_DOCUMENT_CLIENT_V2 finding using the retrieved official AWS guidance for migration topic dynamodb-document-client.',
+  )
+  assert.equal(
+    loaded.report.plan[1].action,
+    'Review 5 detected AWS_REQUEST_PROMISE_V2 findings as repository evidence. Migration guidance for these findings was not established in this investigation, so no migration behavior or replacement is recommended.',
+  )
+  assert.doesNotMatch(
+    loaded.report.plan[1].action,
+    /send\(\)|native Promises|automatically resolved|GetCommand|PutCommand|QueryCommand|UpdateCommand|DeleteCommand/,
+  )
 })
