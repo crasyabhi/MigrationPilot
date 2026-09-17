@@ -8,6 +8,7 @@ import {
   reportDatabasePool,
 } from '../../src/db/migration-reports'
 import { runFindUsagePatterns } from '../../src/agent/tools/find-usage-patterns'
+import { runGetMigrationGuidance } from '../../src/agent/tools/get-migration-guidance'
 import {
   runPublishMigrationReport,
   validateMigrationReport,
@@ -15,6 +16,7 @@ import {
 import { runScanDependencies } from '../../src/agent/tools/scan-dependencies'
 import {
   createInvestigationInvocationState,
+  configureGuidanceQueryBudget,
   traceGuidanceToolCall,
   traceInvestigationToolCall,
   type InvestigationInvocationState,
@@ -44,6 +46,7 @@ before(async () => {
   await pool.query('DELETE FROM repositories WHERE repository_path = $1', [repoPath])
 
   invocationState = createInvestigationInvocationState()
+  configureGuidanceQueryBudget(invocationState, 2)
   const dependencyInput = { repoPath }
   const dependencies = await traceInvestigationToolCall(
     invocationState,
@@ -91,6 +94,25 @@ before(async () => {
     }),
   )
 
+  const unavailablePromiseGuidance = await traceGuidanceToolCall(
+    invocationState,
+    {
+      query: 'AWS SDK v2 promise migration',
+      service: 'Core',
+      migrationTopic: 'core-request-promise',
+    },
+    () => runGetMigrationGuidance(
+      {
+        query: 'AWS SDK v2 promise migration',
+        service: 'Core',
+        migrationTopic: 'core-request-promise',
+      },
+      invocationState,
+      async () => { throw new Error('simulated unavailable guidance') },
+    ),
+  )
+  assert.equal(unavailablePromiseGuidance.ok, false)
+
   const findings = usage.findings.map((finding) => ({
     ...finding,
     guidanceEvidence: finding.ruleId === 'DDB_DOCUMENT_CLIENT_V2'
@@ -126,7 +148,7 @@ before(async () => {
       path: repoPath,
     },
     scanTimestamp: '2026-09-17T12:00:00.000Z',
-    status: 'completed_with_manual_review',
+    status: 'guidance_incomplete',
     dependency: {
       awsSdkV2Detected: dependencies.hasAwsSdkV2,
       awsSdkV2: dependencies.awsSdkV2,
@@ -209,6 +231,29 @@ test('scanner finding without migration recommendation remains valid', () => {
   assert.equal(validReport.plan.some((step) =>
     step.affectedFindings.some((reference) => reference.ruleId === 'AWS_REQUEST_PROMISE_V2')), false)
   assert.equal(validateMigrationReport(validReport, invocationState).ok, true)
+})
+
+test('report publishes with DynamoDB guidance while promise findings remain fact-only', async () => {
+  const promiseFinding = validReport.findings.find((finding) =>
+    finding.ruleId === 'AWS_REQUEST_PROMISE_V2')
+  const documentClientFinding = validReport.findings.find((finding) =>
+    finding.ruleId === 'DDB_DOCUMENT_CLIENT_V2')
+
+  assert.ok(promiseFinding)
+  assert.deepEqual(promiseFinding.guidanceEvidence, [])
+  assert.ok(documentClientFinding && documentClientFinding.guidanceEvidence.length > 0)
+  assert.equal(validReport.status, 'guidance_incomplete')
+  assert.equal(validReport.plan.some((step) =>
+    step.type === 'evidence-backed-migration'
+    && step.affectedFindings.some((finding) => finding.ruleId === 'AWS_REQUEST_PROMISE_V2')), false)
+
+  const output = await runPublishMigrationReport(validReport, invocationState, pool)
+  assert.equal(output.ok, true)
+  if (!output.ok) return
+  const loaded = await loadMigrationReport(output.reportId, pool)
+  const persistedPromise = loaded?.report.findings.find((finding) =>
+    finding.ruleId === 'AWS_REQUEST_PROMISE_V2')
+  assert.deepEqual(persistedPromise?.guidanceEvidence, [])
 })
 
 test('recommendation referencing completed attached guidance succeeds', () => {

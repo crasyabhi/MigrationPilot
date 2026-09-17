@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   MigrationAgentExecutionError,
+  productionMaxGuidanceQueries,
   productionMigrationAgentTools,
   type MigrationAgentRunInput,
 } from '../../src/agent/migration-agent'
@@ -222,16 +223,20 @@ test('successful publication returns the persisted report ID and no internal pat
     acquisition: fixture.options,
     agentRunner: async () => ({ published: true, reportId }),
   })
-  assert.deepEqual(result, {
-    ok: true,
-    reportId,
-    repository: {
-      owner: 'owner',
-      name: 'repository',
-      url: 'https://github.com/owner/repository',
-      commitSha,
-    },
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.equal(result.reportId, reportId)
+  assert.deepEqual(result.repository, {
+    owner: 'owner',
+    name: 'repository',
+    url: 'https://github.com/owner/repository',
+    commitSha,
   })
+  assert.deepEqual(result.audit.repository, result.repository)
+  assert.equal(result.audit.deterministicPreflight?.dependency.hasAwsSdkV2, true)
+  assert.equal(result.audit.deterministicPreflight?.findingCount, 2)
+  assert.deepEqual(result.audit.cleanup, { attempted: true, succeeded: true })
+  assert.equal(JSON.stringify(result).includes(fixture.workspace()), false)
 })
 
 test('analysis cannot succeed without a confirmed published report ID', async () => {
@@ -300,6 +305,10 @@ test('production agent exposes exactly the four intended existing tools', () => 
     getMigrationGuidance,
     publishMigrationReportTool,
   ])
+})
+
+test('production agent configures a two-query guidance budget', () => {
+  assert.equal(productionMaxGuidanceQueries, 2)
 })
 
 test('production invocation state authorizes only its controlled checkout path', () => {

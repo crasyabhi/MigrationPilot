@@ -1,6 +1,7 @@
 import {
   MigrationAgentExecutionError,
   runProductionMigrationAgent,
+  type MigrationAgentAudit,
   type MigrationAgentRunInput,
   type RepositoryAnalysisAgentRunner,
 } from '../agent/migration-agent'
@@ -34,13 +35,34 @@ export interface RepositoryAnalysisError {
   message: string
 }
 
+export interface RepositoryAnalysisAudit {
+  repository: {
+    url: string
+    owner: string
+    name: string
+    commitSha: string | null
+  } | null
+  deterministicPreflight: {
+    dependency: RepositoryPreflightSuccess['dependencyScan']
+    findingCount: number
+    findings: RepositoryPreflightSuccess['findings']
+    detectedServices: RepositoryPreflightSuccess['detectedServices']
+  } | null
+  agent: MigrationAgentAudit | null
+  cleanup: {
+    attempted: boolean
+    succeeded: boolean | null
+  }
+}
+
 export type RepositoryAnalysisResult =
   | {
     ok: true
     reportId: string
     repository: CanonicalGitHubRepository & { commitSha: string }
+    audit: RepositoryAnalysisAudit
   }
-  | { ok: false; error: RepositoryAnalysisError }
+  | { ok: false; error: RepositoryAnalysisError; audit: RepositoryAnalysisAudit }
 
 export interface RepositoryAnalysisDependencies {
   acquisition?: RepositoryAcquisitionOptions
@@ -59,8 +81,9 @@ function failure(
   code: RepositoryAnalysisErrorCode,
   stage: RepositoryAnalysisError['stage'],
   message: string,
+  audit: RepositoryAnalysisAudit,
 ): RepositoryAnalysisResult {
-  return { ok: false, error: { code, stage, message } }
+  return { ok: false, error: { code, stage, message }, audit }
 }
 
 function agentInput(
@@ -81,17 +104,26 @@ export async function runRepositoryAnalysis(
   dependencies: RepositoryAnalysisDependencies = {},
 ): Promise<RepositoryAnalysisResult> {
   const validation = validateGitHubRepositoryUrl(repositoryUrl)
+  const audit: RepositoryAnalysisAudit = {
+    repository: validation.ok
+      ? { ...validation.repository, commitSha: null }
+      : null,
+    deterministicPreflight: null,
+    agent: null,
+    cleanup: { attempted: false, succeeded: null },
+  }
   if (!validation.ok) {
-    return failure(validation.error.code, 'validation', validation.error.message)
+    return failure(validation.error.code, 'validation', validation.error.message, audit)
   }
 
   const agentRunner = dependencies.agentRunner ?? runProductionMigrationAgent
   const now = dependencies.now ?? (() => new Date())
 
   try {
-    return await withAcquiredRepository(
+    const result = await withAcquiredRepository(
       validation.repository,
       async (acquired) => {
+        audit.repository = { ...validation.repository, commitSha: acquired.commitSha }
         const preflight = await runDeterministicRepositoryPreflight(
           validation.repository,
           acquired,
@@ -101,45 +133,68 @@ export async function runRepositoryAnalysis(
           },
         )
         if (!preflight.ok) {
-          return failure(preflight.error.code, 'preflight', preflight.error.message)
+          return failure(preflight.error.code, 'preflight', preflight.error.message, audit)
+        }
+        audit.deterministicPreflight = {
+          dependency: preflight.dependencyScan,
+          findingCount: preflight.findings.length,
+          findings: preflight.findings,
+          detectedServices: preflight.detectedServices,
         }
 
         const agentResult = await agentRunner(agentInput(acquired.repositoryPath, preflight, now))
+        audit.agent = agentResult.audit ?? null
         if (!agentResult.published || !validPublishedReportId(agentResult.reportId)) {
           return failure(
             'REPORT_NOT_PUBLISHED',
             'publication',
             'Repository analysis completed without a confirmed persisted report ID.',
+            audit,
           )
         }
 
         return {
-          ok: true,
+          ok: true as const,
           reportId: agentResult.reportId,
           repository: preflight.repository,
+          audit,
         }
       },
       dependencies.acquisition,
     )
+    audit.cleanup = { attempted: true, succeeded: true }
+    return result
   } catch (error) {
     if (error instanceof RepositoryAcquisitionError) {
       const cleanup = error.preflightError.code === 'WORKSPACE_CLEANUP_FAILED'
+      audit.cleanup = error.preflightError.code === 'WORKSPACE_FAILED'
+        ? { attempted: false, succeeded: null }
+        : { attempted: true, succeeded: !cleanup }
       return failure(
         error.preflightError.code,
         cleanup ? 'cleanup' : 'acquisition',
         error.preflightError.message,
+        audit,
       )
     }
     if (error instanceof MigrationAgentExecutionError) {
+      audit.agent = error.audit ?? null
+      audit.cleanup = { attempted: true, succeeded: true }
       return failure(
         error.code,
         error.code === 'REPORT_PUBLICATION_FAILED' || error.code === 'REPORT_NOT_PUBLISHED'
           ? 'publication'
           : 'agent',
         error.message,
+        audit,
       )
     }
-    return failure('AGENT_FAILED', 'agent', 'The migration investigation agent failed unexpectedly.')
+    audit.cleanup = { attempted: true, succeeded: true }
+    return failure(
+      'AGENT_FAILED',
+      'agent',
+      'The migration investigation agent failed unexpectedly.',
+      audit,
+    )
   }
 }
-
