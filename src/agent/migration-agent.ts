@@ -5,6 +5,7 @@ import { getMigrationGuidance } from './tools/get-migration-guidance'
 import {
   authorizeInvestigationRepositoryPath,
   configureGuidanceQueryBudget,
+  configureInvestigationRunContext,
   createInvestigationInvocationState,
   getGuidanceQueryBudgetSnapshot,
   getInvestigationToolTrace,
@@ -97,9 +98,9 @@ export const productionMigrationAgentSystemPrompt = [
   'If a scanner finding has no supporting retrieved migration evidence, keep it as a repository fact with empty guidanceEvidence. Do not invent a recommendation for it.',
   'In particular, AWS_REQUEST_PROMISE_V2 does not authorize claims about .promise() migration behavior unless retrieved official evidence explicitly establishes those claims.',
   'Create an ordered plan using only persisted findings. Use repository-review for evidence gaps and evidence-backed-migration only when the affected finding includes the referenced completed guidance chunks.',
-  'Call publish_migration_report exactly once after the investigation is complete. Use the supplied canonical owner/name as repository.identifier, the exact repositoryPath, canonical URL, commit SHA, and scanTimestamp.',
+  'Call publish_migration_report exactly once after the investigation is complete. Its compact input contains only status and plan decisions referencing findingId and completed guidance chunkId values; never resend repository metadata, findings, snippets, locations, URLs, or guidance content.',
   'The task is complete only when publish_migration_report returns ok: true. If publication fails, do not claim success.',
-  'After successful publication, respond briefly with the returned report ID and no additional migration advice.',
+  'After successful publication, respond only with a brief publication confirmation and the returned report ID. Do not restate, expand, or add migration recommendations.',
 ].join(' ')
 
 export const productionMigrationAgentTools = [
@@ -237,6 +238,15 @@ export const runProductionMigrationAgent: RepositoryAnalysisAgentRunner = async 
   const invocationState = createInvestigationInvocationState()
   configureGuidanceQueryBudget(invocationState, productionMaxGuidanceQueries)
   authorizeInvestigationRepositoryPath(invocationState, input.repositoryPath)
+  configureInvestigationRunContext(invocationState, {
+    repository: {
+      identifier: `${input.repository.owner}/${input.repository.name}`,
+      path: input.repositoryPath,
+      url: input.repository.url,
+      commitSha: input.repository.commitSha,
+    },
+    scanTimestamp: input.scanTimestamp,
+  })
   const agent = new Agent({
     model: new BedrockModel({
       modelId: 'global.anthropic.claude-sonnet-4-6',

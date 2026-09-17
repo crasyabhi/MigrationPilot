@@ -25,6 +25,16 @@ export interface CompletedGuidanceRecord {
   evidence: unknown[]
 }
 
+export interface InvestigationRunContext {
+  repository: {
+    identifier: string
+    path: string
+    url: string
+    commitSha: string
+  }
+  scanTimestamp: string
+}
+
 interface InvestigationRunState {
   nextCallId: number
   events: InvestigationToolEvent[]
@@ -63,6 +73,7 @@ export type GuidanceQueryExecution<T> =
 
 const runStateKey = 'migrationPilot.investigationRunState'
 const authorizedRepositoryPathKey = 'migrationPilot.authorizedRepositoryPath'
+const runContextKey = 'migrationPilot.runContext'
 
 function isRunState(value: unknown): value is InvestigationRunState {
   return typeof value === 'object'
@@ -110,6 +121,23 @@ export function createInvestigationInvocationState(): InvestigationInvocationSta
   const invocationState: InvestigationInvocationState = {}
   runState(invocationState)
   return invocationState
+}
+
+export function configureInvestigationRunContext(
+  invocationState: InvestigationInvocationState,
+  context: InvestigationRunContext,
+): void {
+  invocationState[runContextKey] = structuredClone(context)
+}
+
+export function getInvestigationRunContext(
+  invocationState: InvestigationInvocationState,
+): InvestigationRunContext | undefined {
+  const context = invocationState[runContextKey]
+  if (typeof context !== 'object' || context === null
+    || !('repository' in context) || typeof context.repository !== 'object' || context.repository === null
+    || !('scanTimestamp' in context) || typeof context.scanTimestamp !== 'string') return undefined
+  return context as InvestigationRunContext
 }
 
 export function configureGuidanceQueryBudget(

@@ -1,4 +1,5 @@
 import { tool } from '@strands-agents/sdk'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { findUsagePatterns as scanUsagePatterns } from '../../scanner/find-usage-patterns'
 import type { UsageFinding, UsageRuleId, UsageService } from '../../scanner/types'
@@ -85,6 +86,22 @@ export interface UsageFindingFacets {
   migrationTopics: string[]
 }
 
+export type IdentifiedUsageFinding = UsageFinding & { findingId: string }
+
+export function usageFindingId(finding: UsageFinding): string {
+  const identity = JSON.stringify([
+    finding.ruleId,
+    finding.filePath,
+    finding.line,
+    finding.column,
+  ])
+  return `finding_${createHash('sha256').update(identity).digest('hex').slice(0, 20)}`
+}
+
+function identifyFinding(finding: UsageFinding): IdentifiedUsageFinding {
+  return { findingId: usageFindingId(finding), ...finding }
+}
+
 export type FindUsagePatternsToolOutput =
   | {
     ok: true
@@ -98,8 +115,8 @@ export type FindUsagePatternsToolOutput =
       migrationTopic?: string
     }
     available: UsageFindingFacets
-    findings: UsageFinding[]
-    relatedFindings: UsageFinding[]
+    findings: IdentifiedUsageFinding[]
+    relatedFindings: IdentifiedUsageFinding[]
     evidenceScope: {
       repositoryFindingsAreFacts: true
       migrationGuidanceIncluded: false
@@ -178,8 +195,8 @@ export async function runFindUsagePatterns(
         migrationTopic: input.migrationTopic,
       },
       available,
-      findings,
-      relatedFindings,
+      findings: findings.map(identifyFinding),
+      relatedFindings: relatedFindings.map(identifyFinding),
       evidenceScope: {
         repositoryFindingsAreFacts: true,
         migrationGuidanceIncluded: false,

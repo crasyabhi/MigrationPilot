@@ -58,7 +58,10 @@ test('find_usage_patterns discover preserves exact evidence', async () => {
   assert.equal(output.ok, true)
   if (!output.ok) return
   const finding = output.findings.find((item) => item.ruleId === 'S3_GET_SIGNED_URL_V2')
+  assert.match(finding?.findingId ?? '', /^finding_[a-f0-9]{20}$/)
+  if (finding === undefined) return
   assert.deepEqual(finding, {
+    findingId: finding.findingId,
     ruleId: 'S3_GET_SIGNED_URL_V2',
     service: 'S3',
     filePath: 'index.js',
