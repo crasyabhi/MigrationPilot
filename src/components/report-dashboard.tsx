@@ -42,7 +42,7 @@ export function ReportDashboard({ report, publishedAt, isDemo }: ReportDashboard
   const summary = summarizeMigrationReport(report)
 
   return (
-    <div className="min-h-screen bg-[#090c0b] text-zinc-100">
+    <div className="min-h-screen overflow-x-hidden bg-[#090c0b] text-zinc-100">
       <AppHeader />
       <ReportHeader report={report} publishedAt={publishedAt} isDemo={isDemo} />
 
@@ -110,7 +110,7 @@ function ReportHeader({ report, publishedAt, isDemo }: ReportDashboardProps) {
                 </a>
               ) : report.repository.identifier}
             </h1>
-            <p className="mt-3 font-mono text-xs text-zinc-500">{report.repository.path}</p>
+            <p className="mt-3 break-all font-mono text-xs text-zinc-500">{report.repository.path}</p>
           </div>
 
           <dl className="grid shrink-0 grid-cols-2 gap-x-7 gap-y-4 border-t border-white/[0.07] pt-5 sm:flex sm:border-0 sm:pt-0 lg:text-right">

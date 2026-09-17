@@ -22,14 +22,14 @@ const scopeItems = [
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#090c0b] text-zinc-100">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#090c0b] text-zinc-100">
       <AppHeader />
       <main className="flex-1">
         <section className="relative overflow-hidden border-b border-white/[0.07]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_66%_5%,rgba(52,211,153,0.08),transparent_30%)]" />
           <div className="surface-grid pointer-events-none absolute inset-0 opacity-35" />
           <div className="relative mx-auto grid max-w-[1400px] gap-14 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.78fr)] lg:items-center lg:gap-20 lg:px-10 lg:py-36">
-            <div>
+            <div className="min-w-0">
               <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-1.5 text-xs font-medium text-emerald-300">
                 <span className="size-1.5 rounded-full bg-emerald-300" aria-hidden="true" />
                 AWS SDK v2 → v3 migration auditor
@@ -48,13 +48,13 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.1] bg-[#121614]/95 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.28)] sm:p-7">
+            <div className="min-w-0 rounded-2xl border border-white/[0.1] bg-[#121614]/95 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.28)] sm:p-7">
               <div className="mb-6 flex items-start justify-between gap-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">New analysis</p>
                   <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">Audit a repository</h2>
                 </div>
-                <span className="rounded-md border border-amber-300/15 bg-amber-300/[0.07] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-200">Preview</span>
+                <span className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.07] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-200">Live analysis</span>
               </div>
               <RepositoryAnalyzeForm />
               <div className="mt-6 border-t border-white/[0.07] pt-5">

@@ -1,0 +1,1 @@
+{"hasAwsSdkV2":true,"expectedFindings":[{"ruleId":"S3_CLIENT_V2","filePath":"index.js","line":2,"manualReview":false},{"ruleId":"S3_GET_SIGNED_URL_V2","filePath":"index.js","line":3,"manualReview":false}]}

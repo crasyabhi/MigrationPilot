@@ -1,0 +1,1 @@
+{"hasAwsSdkV2":true,"expectedFindings":[{"ruleId":"AWS_GLOBAL_CONFIG_V2","filePath":"index.js","line":2,"manualReview":true}]}

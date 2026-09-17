@@ -10,7 +10,7 @@ export const demoMigrationReport = {
     path: 'tests/fixtures/investigation/ddb-v2-app',
   },
   scanTimestamp: '2026-09-17T12:00:00.000Z',
-  status: 'completed_with_manual_review',
+  status: 'guidance_incomplete',
   dependency: {
     awsSdkV2Detected: true,
     awsSdkV2: {
@@ -88,7 +88,7 @@ export const demoMigrationReport = {
     {
       order: 1,
       type: 'evidence-backed-migration',
-      action: 'Replace the detected v2 DocumentClient construction using the retrieved v3 DocumentClient example.',
+      action: 'Plan migration work for 1 detected DDB_DOCUMENT_CLIENT_V2 finding using the retrieved official AWS guidance for migration topic dynamodb-document-client.',
       affectedFindings: [
         {
           ruleId: 'DDB_DOCUMENT_CLIENT_V2',
@@ -103,7 +103,7 @@ export const demoMigrationReport = {
     {
       order: 2,
       type: 'evidence-backed-migration',
-      action: 'Determine whether nickname: undefined is intentionally omitted before applying the retrieved marshalling configuration.',
+      action: 'Review 1 detected DDB_UNDEFINED_MARSHALLING_REVIEW finding using the retrieved official AWS guidance for migration topic dynamodb-undefined-marshalling. Developer judgment remains required.',
       affectedFindings: [
         {
           ruleId: 'DDB_UNDEFINED_MARSHALLING_REVIEW',
@@ -118,7 +118,7 @@ export const demoMigrationReport = {
     {
       order: 3,
       type: 'repository-review',
-      action: 'Review the detected .promise() usage separately; migration guidance for this finding was not established in this investigation.',
+      action: 'Review 1 detected AWS_REQUEST_PROMISE_V2 finding as repository evidence. Migration guidance for this finding was not established in this investigation, so no migration behavior or replacement is recommended.',
       affectedFindings: [
         {
           ruleId: 'AWS_REQUEST_PROMISE_V2',

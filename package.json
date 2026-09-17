@@ -2,6 +2,9 @@
   "name": "migration-pilot",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -10,10 +13,18 @@
     "test:scanner": "tsx --test tests/scanner/*.test.ts",
     "test:tools": "tsx --test tests/agent-tools/*.test.ts",
     "test:reports": "tsx --test tests/reports/*.test.ts",
-    "test:preflight": "tsx --test tests/repository/*.test.ts"
+    "test:preflight": "tsx --test tests/repository/*.test.ts",
+    "test:web": "tsx --test tests/web/*.test.ts",
+    "test:evaluation": "tsx --test tests/evaluation/*.test.ts",
+    "test": "npm run test:scanner && npm run test:tools && npm run test:reports && npm run test:preflight && npm run test:web && npm run test:evaluation",
+    "eval": "tsx scripts/run-eval.ts",
+    "rag:preview": "tsx scripts/rag-preview.ts",
+    "rag:ingest": "tsx scripts/rag-ingest.ts",
+    "rag:query": "tsx scripts/rag-query.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1133.0",
+    "@aws-sdk/client-s3": "^3.1135.0",
     "@strands-agents/sdk": "^1.17.0",
     "cheerio": "^1.2.0",
     "next": "16.3.5",
